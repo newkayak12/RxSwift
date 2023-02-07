@@ -1,25 +1,4 @@
-//
-//  Mastering RxSwift
-//  Copyright (c) KxCoding <help@kxcoding.com>
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
-//
+
 
 import UIKit
 import RxSwift
@@ -27,6 +6,52 @@ import RxSwift
 /*:
  # Observables
  */
+
+
+
+/**
+ Observable  ->      Event        ->        Observer
+             <-     subscribe     <-
+ 
+ //////////////////////////////////////////////////////
+             ->   Next(Emission)  ->
+             -> Error/Completed(Notification) ->
+ 
+ */
+
+
+//#1 Create 연산자로 Observable 동작을 직접
+let o1 = Observable<Int>.create { (observable) -> Disposable in
+    observable.on(.next(0))
+    observable.onNext(1)
+    
+    observable.onCompleted() //종료
+    return Disposables.create()
+}
+
+//#1-1
+o1.subscribe {
+    print("--start--")
+    print($0)
+    if let elem = $0.element {
+        print(elem)
+    }
+    print("--end--")
+}
+
+print("-----------------------")
+
+//#1-2
+o1.subscribe ( onNext: {elem in
+    print(elem)
+})
+
+
+
+//#2 create가 아닌 다른 연산자.
+Observable.from([0, 1])
+
+
 
 
 

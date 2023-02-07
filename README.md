@@ -1,3 +1,3 @@
 # Mastering-RxSwift
 
-https://kxcoding.com/course/mastering-rxswift
+https://github.com/ReactiveX/RxSwift

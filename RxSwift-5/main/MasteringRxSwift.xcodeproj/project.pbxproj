@@ -7,7 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		43F4317B8BDE530A36FB2430 /* Pods_MasteringRxSwift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E0A2C89A5D74E986B59A5178 /* Pods_MasteringRxSwift.framework */; };
+		7EA40F432992797F00E41AD5 /* Pods_MasteringRxSwift.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E0A2C89A5D74E986B59A5178 /* Pods_MasteringRxSwift.framework */; };
+		7EA40F442992797F00E41AD5 /* Pods_MasteringRxSwift.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E0A2C89A5D74E986B59A5178 /* Pods_MasteringRxSwift.framework */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA1932B6231937070019286D /* Product.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1932B5231937070019286D /* Product.swift */; };
 		AA1932B923193DD20019286D /* TableView.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA1932B823193DD20019286D /* TableView.storyboard */; };
 		AA1932BC23193FEB0019286D /* ProductTableViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1932BB23193FEB0019286D /* ProductTableViewCell.swift */; };
@@ -63,6 +64,20 @@
 		AAFF6F73231FB83200B86AF7 /* CocoaTouchAlertViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFF6F72231FB83200B86AF7 /* CocoaTouchAlertViewController.swift */; };
 		AAFF6F75231FB84500B86AF7 /* RxCocoaAlertViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFF6F74231FB84500B86AF7 /* RxCocoaAlertViewController.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7EA40F452992797F00E41AD5 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				7EA40F442992797F00E41AD5 /* Pods_MasteringRxSwift.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		81D6A7D352D4EED13040E6E8 /* Pods-MasteringRxSwift.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MasteringRxSwift.release.xcconfig"; path = "Pods/Target Support Files/Pods-MasteringRxSwift/Pods-MasteringRxSwift.release.xcconfig"; sourceTree = "<group>"; };
@@ -229,7 +244,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				43F4317B8BDE530A36FB2430 /* Pods_MasteringRxSwift.framework in Frameworks */,
+				7EA40F432992797F00E41AD5 /* Pods_MasteringRxSwift.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -787,6 +802,7 @@
 				AA1D2E3A22967B250044E487 /* Frameworks */,
 				AA1D2E3B22967B250044E487 /* Resources */,
 				B75B6D84A8C600399DC2689D /* [CP] Embed Pods Frameworks */,
+				7EA40F452992797F00E41AD5 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
