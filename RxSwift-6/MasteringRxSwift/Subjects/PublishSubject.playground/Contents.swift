@@ -1,26 +1,3 @@
-//
-//  Mastering RxSwift
-//  Copyright (c) KxCoding <help@kxcoding.com>
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
-//
-
 
 import UIKit
 import RxSwift
@@ -28,6 +5,8 @@ import RxSwift
 /*:
  # PublishSubject
  */
+//subject로 전달되는 이벤트를 Observer에게 전달하는 subject
+
 
 let disposeBag = DisposeBag()
 
@@ -36,7 +15,27 @@ enum MyError: Error {
 }
 
 
+let subject = PublishSubject<String>()
+subject.onNext("HELLO")
+let o1 = subject.subscribe { print(">>1", $0) }
+o1.disposed(by: disposeBag)
+//이전의 "HELLO"는 이미 소모됨 PublishSubject는 구독 이후의 동작을 처리
+subject.onNext("RxSwift")
+
+let o2 = subject.subscribe{ print(">>2", $0) }
+o2.disposed(by: disposeBag)
+subject.onNext("SUBJECT")
 
 
+//subject.onCompleted()
+//completed 이후에는 next전달 X 바로 completed
+
+//에러를 보내면?
+subject.onError(MyError.error)
+//completed와 같음
+let o3 = subject.subscribe{
+    print(">>3", $0)
+}
 
 
+//구독 이전의 이벤트는 사라지는 것이 PublishSubject의 특징 

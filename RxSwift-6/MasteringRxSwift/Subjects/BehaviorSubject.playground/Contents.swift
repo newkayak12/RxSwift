@@ -1,26 +1,3 @@
-//
-//  Mastering RxSwift
-//  Copyright (c) KxCoding <help@kxcoding.com>
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
-//
-
 import UIKit
 import RxSwift
 
@@ -28,19 +5,35 @@ import RxSwift
  # BehaviorSubject
  */
 
+/**
+ PublishSubject와 유사한 방식으로 동작
+ 차이점은 생성하는 방식에 있다.
+ 또 구독할 때 차이가 있다.
+ */
 let disposeBag = DisposeBag()
 
 enum MyError: Error {
    case error
 }
 
+let p = PublishSubject<Int>() // 빈 생성자
+p.subscribe{ print("publicshSubject >>", $0) }.disposed(by: disposeBag)
+//subject로 이벤트 전달 전까지 구독자로 이벤트 전달 X
 
+let b = BehaviorSubject<Int>(value: 0) //기본 값을 전달한다.
+b.subscribe { print("behaviorSubject >>", $0)}.disposed(by: disposeBag)
+//내부에 Next가 BehaviorSubject를 생성하자 마자 바로 생성
 
+b.onNext(1)
 
+// 이전 이벤트를 저장하고 있다가 새로 구독한 녀석에게 던진다. 단 새로운 이벤트가 발생하면 이전 이벤트를 교체한다.
+b.subscribe { print("behaviorSubject >>", $0)}.disposed(by: disposeBag)
 
+//b.onCompleted()
+b.onError(MyError.error)
 
-
-
+//completed가 전달되면 이전 이벤트라도 무시함
+b.subscribe { print("behaviorSubject >>", $0)}.disposed(by: disposeBag)
 
 
 
