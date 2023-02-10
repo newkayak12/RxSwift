@@ -1,26 +1,3 @@
-//
-//  Mastering RxSwift
-//  Copyright (c) KxCoding <help@kxcoding.com>
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
-//
-
 import UIKit
 import RxSwift
 
@@ -32,6 +9,20 @@ let disposeBag = DisposeBag()
 let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 
+Observable.from(numbers).take(while: {!$0.isMultiple(of: 2)}, behavior: .exclusive)
+//조건을 충족하는 이벤트만 방출
+//behavior -> exclusive, inclusive
+    .subscribe{ print($0) }
+    .disposed(by: disposeBag)
+
+//단 predicate가 false가 되면 중지(.exclusive)
 
 
+Observable.from(numbers).take(while: {!$0.isMultiple(of: 2)}, behavior: .inclusive)
+//조건을 충족하는 이벤트만 방출
+//behavior -> exclusive, inclusive
+    .subscribe{ print($0) }
+    .disposed(by: disposeBag)
+
+//단 predicate가 false가 되면 중지(.inclusive ==> 마지막 값 포함)
 
