@@ -1,26 +1,3 @@
-//
-//  Mastering RxSwift
-//  Copyright (c) KxCoding <help@kxcoding.com>
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
-//
-
 import UIKit
 import RxSwift
 
@@ -40,24 +17,25 @@ let blueHeart = "💙"
 
 let sourceObservable = PublishSubject<String>()
 let trigger = PublishSubject<Void>()
-
+//원본 -> InnerObservable을 만들어서 방출하는데 새로운 InnerObservable이 생기면 기존 이벤트 방출은 멈추고 최근 이벤트를 방출한다.
 sourceObservable
-    .flatMap { circle -> Observable<String> in
+//    .flatMap { circle -> Observable<String> in
+    .flatMapLatest { circle -> Observable<String> in
         switch circle {
-        case redCircle:
-            return Observable<Int>.interval(.milliseconds(200), scheduler: MainScheduler.instance)
-                .map { _ in redHeart}
-                .take(until: trigger)
-        case greenCircle:
-            return Observable<Int>.interval(.milliseconds(200), scheduler: MainScheduler.instance)
-                .map { _ in greenHeart}
-                .take(until: trigger)
-        case blueCircle:
-            return Observable<Int>.interval(.milliseconds(200), scheduler: MainScheduler.instance)
-                .map { _ in blueHeart}
-                .take(until: trigger)
-        default:
-            return Observable.just("")
+            case redCircle:
+                return Observable<Int>.interval(.milliseconds(200), scheduler: MainScheduler.instance)
+                    .map { _ in redHeart}
+                    .take(until: trigger)
+            case greenCircle:
+                return Observable<Int>.interval(.milliseconds(200), scheduler: MainScheduler.instance)
+                    .map { _ in greenHeart}
+                    .take(until: trigger)
+            case blueCircle:
+                return Observable<Int>.interval(.milliseconds(200), scheduler: MainScheduler.instance)
+                    .map { _ in blueHeart}
+                    .take(until: trigger)
+            default:
+                return Observable.just("")
         }
     }
     .subscribe { print($0) }
@@ -73,6 +51,12 @@ DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
     sourceObservable.onNext(blueCircle)
 }
 
+DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+    sourceObservable.onNext(redCircle)
+} // -> 핵심은 InnerObservable을 재사용하는 식으로 만들어지는 것이 아니다. 항상 기존의 것을 제거한다. 
+
 DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
     trigger.onNext(())
 }
+
+//새로운 InnerObs 가 생성되면 기존 InnerObs가 삭제

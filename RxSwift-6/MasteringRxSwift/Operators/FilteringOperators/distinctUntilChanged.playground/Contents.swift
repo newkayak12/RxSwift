@@ -1,26 +1,3 @@
-//
-//  Mastering RxSwift
-//  Copyright (c) KxCoding <help@kxcoding.com>
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
-//
-
 import UIKit
 import RxSwift
 
@@ -42,8 +19,31 @@ let persons = [
     Person(name: "Tim", age: 56)
 ]
 
+Observable.from(numbers)
+    .distinctUntilChanged() //순서대로 비교하고 이전 이벤트와 같다면 방출하지 않는다.
+    .subscribe{ print($0) }
+    .disposed(by: disposeBag)
+//단순히 동일한 이벤트가 연속적으로 방출되는지만 막는다.
+//같은지는 $0 == $1와 같이 비교한다.
+//만약 비교를 커스텀하고 싶다면 클로저나 keyPath를 받는다.
+
+Observable.from(numbers)
+    .distinctUntilChanged { !$0.isMultiple(of: 2) && !$1.isMultiple(of: 2) }
+    .subscribe{ print($0) }
+    .disposed(by: disposeBag)
+
+Observable.from(tuples)
+    .distinctUntilChanged { $0.0 }
+    .subscribe{ print($0) }
+    .disposed(by: disposeBag)
+
+Observable.from(tuples)
+    .distinctUntilChanged { $0.1 }
+    .subscribe{ print($0) }
+    .disposed(by: disposeBag)
 
 
-
-
-
+Observable.from(persons)
+    .distinctUntilChanged(at: \.age)
+    .subscribe{ print($0) }
+    .disposed(by: disposeBag)
