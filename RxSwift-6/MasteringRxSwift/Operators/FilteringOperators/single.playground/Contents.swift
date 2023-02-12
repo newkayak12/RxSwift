@@ -20,7 +20,7 @@ Observable.from(numbers)
 //하나 이상을 방출하려고 하면 에러
 
 Observable.from(numbers)
-    .single{ $0 == 3}
+    .single{ $0 == 3 }
     .subscribe{ print($0) }
     .disposed(by: disposeBag)
 

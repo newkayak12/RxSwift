@@ -23,7 +23,8 @@ subject.onNext(3)
 
 /** take(until: (Int) -> Bool, behavior: TakeBehavior)*/
 //predicate가 true가 되면 complete
-subject.take(until: { $0 > 5 }, behavior:.exclusive)
+//subject.take(until: { $0 > 5 }, behavior:.exclusive)
+subject.take(until: { $0 > 5 }, behavior:.inclusive)
     .subscribe{ print($0) }
     .disposed(by: disposeBag)
 
