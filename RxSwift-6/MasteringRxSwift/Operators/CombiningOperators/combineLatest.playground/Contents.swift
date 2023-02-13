@@ -1,26 +1,3 @@
-//
-//  Mastering RxSwift
-//  Copyright (c) KxCoding <help@kxcoding.com>
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
-//
-
 import UIKit
 import RxSwift
 
@@ -38,8 +15,42 @@ let greetings = PublishSubject<String>()
 let languages = PublishSubject<String>()
 
 
+/**
+ ----1----2--------------------------3-----4-----------------5-----|→
+    
+                                +
+ 
+ ------A-----B--------------C---D----------------------------------|→
+ 
+ 
+                                =
+ 
+ -------1A--2A--2B-----------2C--2D----3D----4D---------------5D---|→
+ */
 
 
 
+Observable.combineLatest(greetings, languages) { lhs, rhs -> String in
+    return "\(lhs) \(rhs)"
+}
+.subscribe{ print($0) }
+.disposed(by: bag)
+
+//combineLatest 결과를 방출하는 Observable을 방출
 
 
+greetings.onNext("Hi, ")
+//여기서 language에 이벤트가 없어서 구독자에게 방출 X -> 바로 받고 싶다면 BehaviorSubject || startWith 연산자로 넘기면 바로 받을 수도 있겠다
+languages.onNext("Swift")
+languages.onNext("RxSwift")
+
+greetings.onNext("Hello!, ")
+
+//greetings.onCompleted()
+greetings.onError(MyError.error)  //소스 중 하나라도 error -> 구독자에게 Error
+greetings.onNext("ByeBye! ")
+languages.onNext("js")
+
+
+// 둘 다(combine 대상 모두) completed가 되면 구독자에게 completed가 전달됨
+languages.onCompleted()

@@ -1141,3 +1141,322 @@ Observable.range(start: 1, count: 10)
     .disposed(by: disposeBag)
 
 ```
+
+## 03-04. CombiningOperator
+### 03-04-01. startWith(element: Element...)
+- last in first out
+- ```Observable```이 방출하기 전 기본/시작 값을 지정할 때 사용
+```swift
+
+let bag = DisposeBag()
+let numbers = [1, 2, 3, 4, 5]
+
+//Obs가 방출하기 전에 기본/시작값을 지정할 때 사용
+//당연히 두 개 이상 연달아 사용 가능
+
+Observable.from(numbers).startWith(-1).startWith(-2).startWith(-4, -9, -22)
+    .subscribe{ print($0) }.disposed(by: bag)
+// -4 -9 -22 -2 -1 1 2 3 4 5
+// last in first out
+
+//추가한 역순으로 시작
+```
+
+
+### 03-04-02. concat()
+- 두 개의 ```Observable```을 연결할 때 사용한다.
+- 방법은 ```typeMethd```, ```instanceMethod``` 두 개가 있다.
+- 결합 순서는 연결된 순서대로 이며, 방출 순서도 같다.
+- 순서대로 방출, ```completed```가 되면 다음 ```Observable이``` 시작된다.
+```swift
+
+let bag = DisposeBag()
+let fruits = Observable.from(["🍏", "🍎", "🥝", "🍑", "🍋", "🍉"])
+let animals = Observable.from(["🐶", "🐱", "🐹", "🐼", "🐯", "🐵"])
+
+
+//두 개의 observable을 연결 할 때 사용
+//typeMethod, instanceMethod로 구성됨
+
+Observable.concat([fruits, animals])
+    .subscribe{ print($0) }.disposed(by: bag)
+//순서대로 연결한 새로운 Observable을 반환
+//연결된 observable이 모든 요소를 방출하면 completed
+
+fruits.concat(animals).subscribe{ print($0) }.disposed(by: bag)
+//error가 전달되면 바로 종료
+
+
+animals.concat(fruits).subscribe{ print($0) }.disposed(by: bag)
+// 이전 observable(animal) 이 completed 되어야 다음 Observable(fruits)이 방출됨
+
+```
+
+### 03-04-03. merge()
+- 두 개 이상의 ```Observable```을 결합할 수 있다.
+- 이후 모든 ```Observable```에서 방출하는 요소를 모은 ```Observable```을 생성하고 방출한다.
+- merge 자체의 개수 제한은 없지만, ```merge(maxConcurrent:)```로 한 번에 병합하는 수를 조절할 수 있다.
+- ```maxConcurrent```보다 많은 수의 ```Observable```을 병합하면 바로 병합되는 것이 아닌 큐에서 병합을 기다린다.
+- 병합된 ```Observable```에서 ```completed``` 상태가 되면 큐에 있는 나머지가 병합된다.
+- 완료는 병합된 요소가 모두 ```completed```가 되면 완료 상태가 되며, 그 중 하나라도 ```error```상태가 되면 구독자에게 ```error```를 알린다. 
+```swift
+
+let bag = DisposeBag()
+
+enum MyError: Error {
+   case error
+}
+
+let oddNumbers = BehaviorSubject(value: 1)
+let evenNumbers = BehaviorSubject(value: 2)
+let negativeNumbers = BehaviorSubject(value: -1)
+
+//concat과 혼동할 수 있지만, 다른 동작을 갖는다.
+//두 개 이상의 obs를 병합하고 모든 obs에서 방출하는 요소들을 방출하는 obs를 생성
+//merge 수는 제한이 없음. 만약 제한해야 한다면 merge(maxConcurrent: )에 파라미터로 수를 보내면 된다.
+let source = Observable.of(oddNumbers, evenNumbers, negativeNumbers)
+source
+    .merge(maxConcurrent: 2)
+    .subscribe { print($0) }
+    .disposed(by: bag)
+
+oddNumbers.onNext(3)
+evenNumbers.onNext(4)
+
+evenNumbers.onNext(6)
+oddNumbers.onNext(5)
+/**
+ next(1)
+ next(2)
+ next(3)
+ next(4)
+ next(6)
+ next(5)
+
+ 대체 언제 종료되는가?
+ */
+//oddNumbers.onCompleted()
+//이래도 evenNumbers는 이벤트를 받을 수 있다.
+////oddNumbers.onError(MyError.error)
+//#2 error라면? -> 그 즉시 구독자에 에러를 전달
+
+////evenNumbers.onNext(8)
+//next(8)
+///evenNumbers.onCompleted()
+//이렇게 다 종료해야 merge 역시 completed
+
+//#3
+negativeNumbers.onNext(-11)
+//이러면 queue에 저장해 놓는다. 다른 Observable이 completed가 되면 병합 대상으로 올린다. 
+
+```
+
+### 03-04-04. combineLatest()
+- 결과를 방출하는 ```Observable```을 방출한다.
+- 타임라인에서 소스 타이밍 앞 뒤로 있는 다른 소스와 결합한다.
+- 모든 소스에 이벤트가 방출되면 구독자에게 전파된다.
+- 모든 소스가 ```completed```가 되면 구독자에 ```completed```가 전파된다.
+- ```Error```는 바로 구독자에게 전파된다. 
+```
+ ex)
+
+  ----1----2--------------------------3-----4-----------------5-----|→
+                                
+                                 ✚ 
+                                
+  ------A-----B--------------C---D----------------------------------|→
+  
+                                 
+                                 =
+                                 
+  -------1A--2A--2B-----------2C--2D----3D----4D---------------5D---|→
+ 
+```
+```swift
+
+Observable.combineLatest(greetings, languages) { lhs, rhs -> String in
+    return "\(lhs) \(rhs)"
+}
+.subscribe{ print($0) }
+.disposed(by: bag)
+
+//combineLatest 결과를 방출하는 Observable을 방출
+
+
+greetings.onNext("Hi, ")
+//여기서 language에 이벤트가 없어서 구독자에게 방출 X -> 바로 받고 싶다면 BehaviorSubject || startWith 연산자로 넘기면 바로 받을 수도 있겠다
+languages.onNext("Swift")
+languages.onNext("RxSwift")
+
+greetings.onNext("Hello!, ")
+
+//greetings.onCompleted()
+greetings.onError(MyError.error)  //소스 중 하나라도 error -> 구독자에게 Error
+greetings.onNext("ByeBye! ")
+languages.onNext("js")
+
+
+// 둘 다(combine 대상 모두) completed가 되면 구독자에게 completed가 전달됨
+languages.onCompleted()
+```
+### 03-04-05. zip()
+- combineLatest와 유사한 듯 보이나 다르다.
+- 각 이벤트에 인덱스에 맞춰서 조합된다. ```(Indexed Sequencing)```
+- 결합할 짝이 없으면 구독자에게 전달되지 않는다.
+- 소스 중 하나라도 ```Error```가 되면 구독자에 에러를 전달한다.
+- 소스 모두 ```completed```가 되면 구독자에 전달된다.
+
+``` 
+ex)
+ ---------1--------2-------------------3-----4---------5--|→
+ 
+                            +
+ 
+ -------------A-------B-----------C-D---------------------|→
+ 
+                            =
+ 
+ -------------1A-------2B--------------3C------4D---------|→
+```
+```swift
+let numbers = PublishSubject<Int>()
+let strings = PublishSubject<String>()
+
+
+Observable.zip(strings, numbers) { "\($0) - \($1)" }.subscribe{ print($0) }.disposed(by: bag)
+strings.onNext("A")
+strings.onNext("B")
+
+numbers.onNext(1)
+//strings.onCompleted()
+strings.onError(MyError.error)
+numbers.onCompleted()
+//항상 방출된 순서대로 짝을 이룬다.
+//소스 중 하나라도 에러가 나면 구독자에 에러를 전파
+```
+
+### 03-04-06. withLatestFrom()
+- ```triggerObservable.withLatestFrom(dataObservable)```의 형태
+- 트리거가 ```next```를 전달하면 ```dataObserver```가 가장 최근의 ```next```를 구독자에게 전달한다.
+- 전달 타이밍은 트리거의 ```next```이다.
+- ```dataObserver```가 새로이 ```next```하지 않으면 트리거 ```next```시 같은 값이 전달될 수 있다.
+- 트리거의 ```completed``` 여부에 따라 구독자에 ```completed```가 전달된다.
+- 데이터의 ```error```는 구독자에게 바로 전달된다.
+
+```swift
+let trigger = PublishSubject<Void>()
+let data = PublishSubject<String>()
+
+trigger.withLatestFrom(data)
+    .subscribe{ print($0) }
+    .disposed(by: bag)
+
+data.onNext("Hello")
+data.onNext("RxSwift")
+
+trigger.onNext(())
+trigger.onNext(())
+//trigger가 next 될 때마다 data의 최신 next를 구독자에 전달
+
+//data.onCompleted() // 트리거가 completed여야 구독자에 completed를 전달
+//data.onError(MyError.error) //에러면 구독자에 바로 전달
+trigger.onNext(())
+trigger.onCompleted()
+
+```
+
+### 03-04-07. sample()
+- ```dataObservable.sample(triggerObservable)``` 형태이다.
+- 트리거의 ```next``` 여부에 따라 ```dataObserver```에서 이벤트를 방출한다.
+- ```withLatestFrom()```과 차이점은 중복된 내용을 ```dataObserver```에서 방출하지 않는다는 점이다.
+- ```dataObserver```에서 ```completed``` 전달 후 트리거에서 ```next```를 하면 ```completed```가 구독자에게 전달된다.  
+```swift
+let trigger = PublishSubject<Void>()
+let data = PublishSubject<String>()
+
+data.sample(trigger)
+    .subscribe{ print($0) }
+    .disposed(by: bag)
+
+trigger.onNext(()) //data가 방출되지 않아서 구독자에 방출되지 않음
+
+data.onNext("HALO!")
+trigger.onNext(())
+trigger.onNext(()) //이전 데이터를 중복 방출하지 않음
+
+//data.onCompleted() // sample은 completed를 onNext시 그대로 전달
+//trigger.onNext(())
+
+//data.onError(MyError.error) //트리거에서 next 없이도 에러 전달
+
+trigger.onError(MyError.error) //바로 에러 전달
+```
+
+### 03-04-08. switchLatest()
+- 가장 최근 이벤트를 방출한 ```Observable```의 이벤트를 구독자에게 방출한다.
+- ```Observable```을 구독하는 ```Observable```에 가깝다.
+- 소스를 구독 후, 소스가 이벤트를 방출하면 구독자에게 해당 이벤트를 방출한다.
+- 구독 대상의의 ```completed```는 구독자로 전달되지 않는다.
+- 구독 대상의 ```error```는 즉시 전달된다.
+- ```switchLatest```의 ```completed```가 구독자게에 전달된다.
+```swift
+
+let a = PublishSubject<String>()
+let b = PublishSubject<String>()
+
+
+let source = PublishSubject<Observable<String>>()
+source
+    .switchLatest() // 파라미터 없음
+    .subscribe { print($0) }
+    .disposed(by: bag)
+
+a.onNext("1")
+b.onNext("B")
+
+source.onNext(a) //여기까지 소스에서 방출하는 것이 없기에 아무것도 방출되지 않는다. onNext(a)로 하면 a가 감시 대상이 된다.
+
+a.onNext("2")
+b.onNext("B") //여기는 구독하지 않았기에 전달되지 않는다.
+
+source.onNext(b) //b가 감시 대상이된다. a에 대한 구독은 종료한다.
+b.onNext("b")
+
+
+//a.onCompleted()//구독자로 전달되지 않는다.
+//b.onCompleted()//구독자로 전달되지 않는다.
+
+a.onError(MyError.error) //구독해제 했기에 전달되지 않는다.
+b.onError(MyError.error) //전달한다.
+
+source.onCompleted() // 소스에 completed 해야 전달
+```
+### 03-04-09. reduce()
+- 일전의 ```scan()```과 유사한 동작을 한다.
+- ```scan()```과 차이점은 중간 과정을 방출하냐 아니냐이다.
+- ```scan()```은 중간 과정이 필요한 경우, ```reduce()```는 중간 과정이 필요 없는 경우이다.
+- ```reduce()``` 연산 결과를 방출하고 ```completed``` 상태가 된다. 
+```swift
+
+let bag = DisposeBag()
+
+enum MyError: Error {
+   case error
+}
+
+let o = Observable.range(start: 1, count: 5)
+
+print("== scan") //중간 결과가 필요한 경우에 사용
+o.scan(0, accumulator: +)
+   .subscribe { print($0) }
+   .disposed(by: bag)
+
+print("== reduce") //결과만 필요한 경우 사용
+o.reduce(0, accumulator: +)
+    .subscribe { print($0) }
+    .disposed(by: bag)
+
+
+//reduce는 결과만 방출하고 onCompleted가 된다.
+
+```

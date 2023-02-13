@@ -1,26 +1,3 @@
-//
-//  Mastering RxSwift
-//  Copyright (c) KxCoding <help@kxcoding.com>
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
-//
-
 import UIKit
 import RxSwift
 
@@ -33,10 +10,20 @@ let fruits = Observable.from(["🍏", "🍎", "🥝", "🍑", "🍋", "🍉"])
 let animals = Observable.from(["🐶", "🐱", "🐹", "🐼", "🐯", "🐵"])
 
 
+//두 개의 observable을 연결 할 때 사용
+//typeMethod, instanceMethod로 구성됨
+
+Observable.concat([fruits, animals])
+    .subscribe{ print($0) }.disposed(by: bag)
+//순서대로 연결한 새로운 Observable을 반환
+//연결된 observable이 모든 요소를 방출하면 completed
+
+fruits.concat(animals).subscribe{ print($0) }.disposed(by: bag)
+//error가 전달되면 바로 종료
 
 
-
-
+animals.concat(fruits).subscribe{ print($0) }.disposed(by: bag)
+// 이전 observable(animal) 이 completed 되어야 다음 Observable(fruits)이 방출됨
 
 
 

@@ -1,26 +1,3 @@
-//
-//  Mastering RxSwift
-//  Copyright (c) KxCoding <help@kxcoding.com>
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
-//
-
 import UIKit
 import RxSwift
 
@@ -34,12 +11,32 @@ enum MyError: Error {
    case error
 }
 
+/**
+ dataObservable.sample(triggerObservable)
+ withLatestFrom과 정반대
+ 
+ trigger가 next이면 data에서 이벤트 방출
+ 그러나, 동일한 next를 방출하지 않는다는 차이점이 있다.
+ */
+
+
 let trigger = PublishSubject<Void>()
 let data = PublishSubject<String>()
 
+data.sample(trigger)
+    .subscribe{ print($0) }
+    .disposed(by: bag)
 
+trigger.onNext(()) //data가 방출되지 않아서 구독자에 방출되지 않음
 
+data.onNext("HALO!")
+trigger.onNext(())
+trigger.onNext(()) //이전 데이터를 중복 방출하지 않음
 
+data.onCompleted() // sample은 completed를 onNext시 그대로 전달
+//trigger.onNext(())
 
+//data.onError(MyError.error) //트리거에서 next 없이도 에러 전달
 
+trigger.onError(MyError.error) //바로 에러 전달
 

@@ -1,26 +1,3 @@
-//
-//  Mastering RxSwift
-//  Copyright (c) KxCoding <help@kxcoding.com>
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
-//
-
 import UIKit
 import RxSwift
 
@@ -33,12 +10,35 @@ let bag = DisposeBag()
 enum MyError: Error {
    case error
 }
-
+//combineLatest와 비교하면 쉽게 이해할 수 있다.
+/**
+ ---------1--------2-------------------3-----4---------5--|→
+ 
+                            +
+ 
+ -------------A-------B-----------C-D---------------------|→
+ 
+                            =
+ 
+ -------------1A-------2B--------------3C------4D---------|→
+ 
+ 각 인덱스에 맞춰서 짝을 이룬다. 요소를 중복해서 사용하지 않는다.(CombineLatest와 다른 점)
+ 결합할 짝이 없으면 구독자에 전달되지 않는다. (Indexed Sequencing)
+ */
 let numbers = PublishSubject<Int>()
 let strings = PublishSubject<String>()
 
 
+Observable.zip(strings, numbers) { "\($0) - \($1)" }.subscribe{ print($0) }.disposed(by: bag)
+strings.onNext("A")
+strings.onNext("B")
 
+numbers.onNext(1)
+//strings.onCompleted()
+strings.onError(MyError.error)
+numbers.onCompleted()
+//항상 방출된 순서대로 짝을 이룬다.
+//소스 중 하나라도 에러가 나면 구독자에 에러를 전파
 
 
 
