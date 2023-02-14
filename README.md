@@ -1460,3 +1460,160 @@ o.reduce(0, accumulator: +)
 //reduce는 결과만 방출하고 onCompleted가 된다.
 
 ```
+
+## 03-05. ConditionalOperator
+### 03-05-01. amb()
+- 가장 먼저 방출을 한 ```Observerable```를 구독한다.
+- 이를 응용하면 여러 서버에 동일 요청을 보내고 가장 빠른 응답을 가지고 로직을 수행하는 등의 작업을 수행할 수 있다.
+```
+ex)
+---------20----40-------60-----------|→
+ 
+ ------1--2-----3---------------------|→
+ 
+ ----------0------0--------0--------0-|→
+ 
+ [amb]
+ ------1--2-----3---------------------|→
+```
+```swift
+let a = PublishSubject<String>()
+let b = PublishSubject<String>()
+let c = PublishSubject<String>()
+
+
+a.amb(b)
+    .subscribe{ print($0) }
+    .disposed(by: bag)
+
+a.onNext("A")
+b.onNext("B")  //이러면 A subject를 구독
+b.onCompleted() //어떠한 B의 이벤트 모두 무시
+a.onCompleted()
+
+//
+//Observable.amb([a,b,c])
+//    .subscribe{ print($0) }
+//    .disposed(by: bag)
+//
+//
+//a.onNext("A")
+//b.onNext("B")
+//c.onNext("C")
+```
+
+## 03-06. TimeBasedOperation
+
+### 03-06-01. interval()
+- ```Observable``` 내부에 타이머를 만든다.
+- 구독 숫자 만큼 타이머를 만든다.
+- ```interval```의 ```period``` 주기로 반복한다.
+
+```swift
+let i = Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance)
+let subscription1 = i.subscribe{ print("1 >>> \($0)") }
+
+//Observable 내부에 타이머가 있는데 생성 시점은 subscribe 때이다. 따라서 subscriber 수 만큼 타이머가 생긴다.
+DispatchQueue.main.asyncAfter(deadline: .now() + 5){
+    subscription1.dispose()
+}
+
+var subscription2: Disposable?
+DispatchQueue.main.asyncAfter(deadline: .now() + 2){
+    subscription2 = i.subscribe{ print("2 >>> \($0)")}
+}
+
+DispatchQueue.main.asyncAfter(deadline: .now() + 7){
+    subscription2?.dispose()
+}
+```
+
+### 03-06-02. timer()
+- ```dueTime```로 첫 방출 이벤트의 시간을 조절할 수 있다.
+- ```period```로 반복 주기 간 시간을 정할 수 있다.
+```swift
+let bag = DisposeBag()
+//첫 번째 요소의 전달 시간
+Observable<Int>.timer(.seconds(5), scheduler: MainScheduler.instance)
+    .subscribe{ print($0) }
+    .disposed(by: bag)
+
+//두 번 째 파라미터(period)가 반복 주기가 된다.
+let obs = Observable<Int>.timer(.seconds(1), period: .milliseconds(500), scheduler: MainScheduler.instance)
+    .subscribe{ print($0) }
+
+DispatchQueue.main.asyncAfter(deadline: .now() + 5){
+    obs.dispose()
+}
+```
+
+### 03-06-03. timeout()
+- ```Observable```에 timeout을 지정할 수 있다.
+- timeout이 지나면 ```Error(RxError.timeout)``` 이벤트를 전달한다. 
+- ```other```에 다른 ```Observable```을 전달할 경우, 원래 이벤트 ```Error```시 ```other```로 교체된다.
+```swift
+let bag = DisposeBag()
+
+let subject = PublishSubject<Int>()
+
+//timeout 내에 next를 전달하지 않으면 RxError.timeout으로 에러를 전파
+//subject.timeout(.seconds(3), scheduler: MainScheduler.instance)
+//    .subscribe{ print($0) }
+//    .disposed(by: bag)
+//
+//Observable<Int>.timer(.seconds(1), period: .seconds(1),scheduler: MainScheduler.instance)
+//    .subscribe(onNext: { subject.onNext($0) })
+//    .disposed(by: bag)
+
+//other에는 Observable을 전달하며, subject에서 타임아웃이 발생하면 Observable이 other로 변경된다. 
+subject.timeout(.seconds(3), other: Observable.just(0), scheduler: MainScheduler.instance)
+    .subscribe{ print($0) }
+.disposed(by: bag)
+
+Observable<Int>.timer(.seconds(2 /*5*/), period: .seconds(5 /*2*/),scheduler: MainScheduler.instance)
+    .subscribe(onNext: { subject.onNext($0) })
+    .disposed(by: bag)
+```
+
+### 03-06-04. delay()
+- ```next``` 이벤트의 전파를 ```dueTime``` 만큼 미룬다.
+- ```error```는 즉시 전달한다.
+- 구독 자체를 미루는 개념은 아니다.
+```swift
+let bag = DisposeBag()
+
+func currentTimeString() -> String {
+   let f = DateFormatter()
+   f.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+   return f.string(from: Date())
+}
+//next이벤트가 구독자로 전달되는 시점을 지정한 시간만큼 지연시킨다.
+//에러 이벤트는 즉시 전달
+Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance)
+    .take(10)
+    .debug()
+    .delay(.seconds(5), scheduler: MainScheduler.instance)
+    .subscribe{ print($0) }
+    .disposed(by: bag)
+//구독 시점을 연기 시키는 것이 아니라 구독자에게 전달하는 시점을 딜레이 한다. 
+```
+### 03-06-05. delaySubscription()
+- 구독 자체를 ```dueTime``` 만큼 늦춘다.
+```swift
+let bag = DisposeBag()
+
+func currentTimeString() -> String {
+   let f = DateFormatter()
+   f.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+   return f.string(from: Date())
+}
+
+Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance)
+    .take(10)
+    .debug()
+    .delaySubscription(.seconds(7), scheduler: MainScheduler.instance)
+    .subscribe{ print($0) }
+    .disposed(by: bag)
+
+//구독 자체를 딜레이 시켜서 next 자체를 늦추게 된다. 
+```
