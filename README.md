@@ -1617,3 +1617,220 @@ Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance)
 
 //구독 자체를 딜레이 시켜서 next 자체를 늦추게 된다. 
 ```
+
+# 04.SharingSubscribe
+```Observable```을 구독하면 그 때마다 연산을 시작한다. 만약 일전에 누군가 구독을 통해서 얻은 내용을 공유할 수 있다면 좋을 것이다.
+
+## 04-01. multicast
+- 일전의 방식은 ```UniCast```에 가깝다.
+- ```multiCast```는 여러 구독자가 하나의 ```subject```를 구독한다.
+- ```subject```가 ```Observable```을 구독하고 그 ```subject```를 다시 구독하는 형태이다.
+- ```ConnectableObservable<Subject, Element>``` 타입을 리턴한다.
+- ```ConnectableObservable```은 구독한다고 바로 이벤트가 방출되는 것이 아니라 ```connect()```메소드를 실행하면 그 때 ```broadCast```가 시작된다.
+- ```connect()```의 리턴 값은 ```disposable```이다.
+- 하나의 시퀀스를 공유하기 때문에 해당 시퀀스가 끝나면 구독자들 모두 종료가 된다.
+```swift
+//Unicast와 같다. 여러 구독자가 하나의 Observable을 구독하는 방법 ==> 1. Multicast
+/**
+ Subject가 Observable을 구독하고 그 subject를 구독하는 방식 (ConnectableObservable<Subject, Element> 형태)
+ 
+ ConnectableObservable은 subscribe를 해도 시퀀스가 실행되지 않음
+ connect()를 해야, 시퀀스 실행
+ 
+ --> 모든 구독자 구독 후 Subject 실행
+ */
+
+
+let bag = DisposeBag()
+let subject = PublishSubject<Int>()
+
+let source = Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance).take(5)
+
+    .multicast(subject) //이러면 source에는 ConnectablerObsevable이 저장
+
+source
+    .subscribe { print("🔵", $0) }
+    .disposed(by: bag)
+
+source
+    .delaySubscription(.seconds(3), scheduler: MainScheduler.instance)
+    .subscribe { print("🔴", $0) }
+    .disposed(by: bag)
+
+source.connect() //이러면 Observable 방출 시작
+    .disposed(by: bag)//.connect() -> Disposable을 리턴
+/**
+ 🔴는 2부터 출력, 원래는 3초 뒤 0부터 실행됐음
+ */
+```
+
+## 04-02. publish()
+- ```multicast()```를 이용하는 것은 같다.
+- ```publishSubject<?>```를 만드는 과정과 ```multicast()```에 subject를 매개변수로 넘겨주는 과정이 합쳐져 있다.
+- 근본적으로 ```publishSubject```를 사용하기 때문에 지나간 이벤트를 받을 수 없다.
+```swift
+let bag = DisposeBag()
+let subject = PublishSubject<Int>()
+let source = Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance).take(5)//.multicast(subject)
+    .publish() //publishSubject를 생성하고 multicast로 전달하는 동작이 통합됨
+    
+source
+    .subscribe { print("🔵", $0) }
+    .disposed(by: bag)
+
+source
+    .delaySubscription(.seconds(3), scheduler: MainScheduler.instance)
+    .subscribe { print("🔴", $0) }
+    .disposed(by: bag)
+
+source.connect()
+```
+## 04-02.relay() / replayAll()
+- ```multicast()```를 이용하는 것은 같다.
+- ```relaySubject<?>```를 만드는 과정과 ```multicast()```에 subject를 매개변수로 넘겨주는 과정이 합쳐져 있다.
+- 근본적으로 ```relaySubject```를 사용하기 때문에 버퍼를 지정해서 지나간 이벤트를 구독자에게 한 번에 플러시 할 수 있다.
+- ```replayAll()```은 버퍼 제한이 없지만 메모리 상 문제가 될 수 있다.
+```swift
+let bag = DisposeBag()
+let subject = ReplaySubject<Int>.create(bufferSize: 5) //소실되는 이벤트를 Replay로 저장
+let source = Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance).take(5)//.multicast(subject)
+        .replay(5)//혹은 이렇게 replay연산자 혹은 replayAll로 버퍼 지정 없이 사용할 수 있다.
+
+source
+        .subscribe { print("🔵", $0) }
+        .disposed(by: bag)
+
+source
+        .delaySubscription(.seconds(3), scheduler: MainScheduler.instance)
+        .subscribe { print("🔴", $0) }
+        .disposed(by: bag)
+
+source.connect()
+//두 번째 구독자는 모든 이벤트를 받을 수 없다.
+/**
+ 만약 두 번째 구독자에게 모두 전달하고 싶다면???
+ ReplaySubject로 버퍼링할 수 있다.
+ */
+```
+
+## 04-03. refCount()
+- ```ConnectableObservableType``` 프로토콜에 구현됐으며, ```Observable```을 리턴한다.
+- 내부에 ```ConnectableObservable```을 유지하면서 새로운 구독자가 생기면 ```connect()```를 실행한다.
+- 구독자가 구독을 종료하고 더 이상 구독자가 존재하지 않으면 시퀀스를 종료한다.
+- 종료 이후 구독자가 새로이 붙으면 새롭게 시퀀스를 시작한다.
+```swift
+let bag = DisposeBag()
+let source = Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance).debug().publish()
+    //.replay(4)
+    .refCount() //refCountObservable을 리턴 (내부에서 connect)
+
+let observer1 = source
+    .subscribe { print("🔵", $0) }
+
+//source.connect() //refCount를 사용하면 필요 없다.
+
+DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+    observer1.dispose()
+}
+
+//DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+//    let observer3 = source.subscribe{ print("🟣", $0) }
+//    
+//    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+//        observer3.dispose()
+//    }
+//}
+
+
+DispatchQueue.main.asyncAfter(deadline: .now() + 7) {
+    let observer2 = source.subscribe { print("🔴", $0) }
+    
+    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+        observer2.dispose()
+    }
+}
+```
+
+## 04-04. share(replay:, scope:)
+- 매개 변수 ```replay```는 내부적으로 ```publishSubject```를 사용할지 ```relaySubject```를 사용할지를 결정한다.
+- 매개변수 ```scope```는 생명 주기를 결절한다. ```.forever```와 ```.whileConnected```가 있다.
+- ```.forever```는 구독자가 없어지더라도 버퍼를 유지한다. 즉 구독자가 사라졌다. 새롭게 붙으면 이전에 버퍼 수 만큼 이벤트를 flush 받는다.
+- ```.forever```는 버퍼를 공유하기는 하지만 시퀀스를 공유하는 것은 아니다.
+- ```.whileConnected```는 구독자가 없어지 버퍼가 사라지고 새롭게 구독자가 붙으면 새롭게 시퀀스를 시작한다.
+
+```swift
+let bag = DisposeBag()
+let source = Observable<Int>.interval(.seconds(1), scheduler: MainScheduler.instance).debug()
+//    .share() //publishSubject
+//    .share(replay: 5) //replaySubject
+    .share(replay: 5, scope: .forever) //모든 구독자가 하나의 subject 공유 --> 이전 버퍼가 남아 있음 시퀀스 공유는 아님
+
+let observer1 = source
+    .subscribe { print("🔵", $0) }
+
+let observer2 = source
+    .delaySubscription(.seconds(3), scheduler: MainScheduler.instance)
+    .subscribe { print("🔴", $0) }
+
+DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+    observer1.dispose()
+    observer2.dispose()
+}
+
+DispatchQueue.main.asyncAfter(deadline: .now() + 7) {
+    let observer3 = source.subscribe { print("⚫️", $0) }
+    
+    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+        observer3.dispose()
+    }
+}
+```
+
+
+# 05. Scheduler
+- swift는 쓰레드 처리를 위해서 ```GCD(Grand Central Dispatch)```를 사용한다.
+- rxSwift는 비슷한 동작을 위해서 ```scheduler```를 사용한다.
+- 스케쥴러는 특정 코드가 실행하는 컨텍스트를 추상화한 것에 가깝다.
+- 쓰레드와 스케쥴러는 1:1로 매칭되는 것이 아니다. 쓰레드 하나에 스케쥴러가 여러 개가 될 수도, 하나의 스케쥴러가 여러 쓰레드에 걸쳐 있을 수도 있다.
+- 스케쥴러는 방식에 따라 ```SerialScheduler``` / ```ConcurrentScheduler```로 나뉜다. 
+- ```SerialScheduler```는  (CurrentThreadScheduler / MainScheduler / SerialDispatchQueueScheduler) 가 있다.
+- ```ConcurrentScheduler```는 (ConcurrentDispatchQueueScheduler / OperationQueueScheduler )가 있다.
+- 이 외에도 ```TestScheduler```/ ```CustomScheduler```가 있다.
+
+> subscribe(on:) : Observable이 실행되는 스케쥴러를 정한다. 위치는 크게 구애받지 않는다.
+> 
+> observe(on:) : 이 후의 동작이 실행되는 스케쥴러를 지정할 수 있다. 위치 선정이 중요하다. 
+
+```swift
+let backgroundScheduler = ConcurrentDispatchQueueScheduler(queue: DispatchQueue.global())
+Observable.of(1, 2, 3, 4, 5, 6, 7, 8, 9) //Observable의 정의
+    .subscribe(on:MainScheduler.instance)
+    .filter { num -> Bool in
+        print(Thread.isMainThread ? "Main Thread" : "Background Thread", ">> filter")
+        return num.isMultiple(of: 2)
+    }
+    .observe(on: backgroundScheduler) //이렇게 하면 이후 체이닝은 다 백그라운드로 동작한다.
+    .map { num -> Int in
+//        DispatchQueue.global().async {
+//            print(Thread.isMainThread ? "Main Thread" : "Background Thread", ">> map")
+//            return num * 2
+//        }
+// 이러면 map을 백그라운드가 아닌 연산을 백그라운드로 실행시킨다.
+// RX에서 스케쥴러 지정은 observeOn, subscribeOn으로 한다.
+        print(Thread.isMainThread ? "Main Thread" : "Background Thread", ">> map")
+        return num * 2
+    }
+    .observe(on: MainScheduler.instance)
+    
+//    .subscribe(on:MainScheduler.instance) //이래도 여전히 백그라운드 subscribe의 스케쥴러를 정하는 것이 아니다. Observable 생성 시 어떤 스케쥴러를 사용할 지 정하는 것 + observe(on:)과 달리 호출 시점에 구애받지 않는다.
+    .subscribe {//Observable이 생성되는 시점은 구독이 되는 시점이다.
+        print(Thread.isMainThread ? "Main Thread" : "Background Thread >> subscribe", $0)
+    } .disposed(by: bag)
+/**
+ Scheduler를 따로 정하지 않았다. -> CurrentScheduler이다.
+ */
+/**
+ subscribe(on:)은 Observable이 시작하는 스케쥴러를
+ observe(on:)은 이어지는 연산자가 시작되는 스케쥴러를 정한다.
+ */
+```
