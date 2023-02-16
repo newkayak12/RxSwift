@@ -35,9 +35,11 @@ let source = Observable<Int>.create { observer in
 let trigger = PublishSubject<Void>()
 
 source
+    .retry{ _ in trigger}
     .subscribe { print($0) }
     .disposed(by: bag)
 
-
-
-
+//트리거가 next를 방출할 때까지 기다린다.
+trigger.onNext(())
+trigger.onNext(())
+trigger.onNext(())

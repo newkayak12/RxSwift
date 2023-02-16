@@ -1834,3 +1834,144 @@ Observable.of(1, 2, 3, 4, 5, 6, 7, 8, 9) //Observable의 정의
  observe(on:)은 이어지는 연산자가 시작되는 스케쥴러를 정한다.
  */
 ```
+
+# 06. ErrorHandling
+에러 핸들링에는 두 가지 방식이 있다.
+- 에러 이벤트가 전달되면 새로운 ```Observable```을 전달한다. (기본 값 혹은 다른 Observable)
+- 에러가 발생하면 기존 ```Observable```을 다시 구독해서 재시도 한다.
+
+## 06-01. catch()
+- 원 ```Observable```이 ```Error```가 되면 대체할 ```Observable```을 ```catch```의 클로저에서 리턴하게 한다.
+- 원 ```Observable```에서 ```error```가 발생하면 더 이상 이벤트를 전달할 수 없으며, ```recovery observable```에서 이벤트를 전달하면 받을 수 있다.
+
+```swift
+let bag = DisposeBag()
+
+enum MyError: Error {
+    case error
+}
+
+let subject = PublishSubject<Int>()
+let recovery = PublishSubject<Int>()
+
+subject
+    .catch{ _ in recovery}
+    .subscribe { print($0) }
+    .disposed(by: bag)
+
+subject.onError(MyError.error)
+subject.onNext(123)//당연히 더 이상 전달되지 않는다. - catch를 붙이고 -> 에러가 전달되지 않는다.
+subject.onNext(44) //더 이상 값을 전달하지 못한다.
+
+recovery.onNext(22) //recovery의 이벤트가 전달된다.
+recovery.onCompleted()//recovery의 구독 종료
+```
+## 06-02. catchAndReturn()
+- ```catchAndReturn()```의 파라미터에 기본값을 할당할 수 있다.
+- ```error```가 발생하면 기본 값을 방출하고 ```completed```가 된다.
+
+```swift
+let bag = DisposeBag()
+
+enum MyError: Error {
+    case error
+}
+
+let subject = PublishSubject<Int>()
+
+subject
+    .catchAndReturn(4)
+    .subscribe { print($0) }
+    .disposed(by: bag)
+
+subject.onError(MyError.error) //catchAndReturn의 파라미터 값 전달
+```
+
+## 06-03. retry()
+- 기존 구독에서 에러가 발생하면 기존 구독을 해지하고(```error```) 새롭게 다시 해당 ```Observable```을 구독한다.
+- 파라미터를 넘기지 않으면 해당 구독이 성공할 때까지 시도한다.
+- 파라미터를 넘기면 숫자 만큼 재시도를 한다. ```(! 초기 시도도 재시도 횟수를 사용한다. == 재시도 횟수 + 1을 파라미터로 넘겨야 한다.)```
+- 재시도에 성공하면 종료한다.
+- 재시도 간격을 조절할 수 없다.
+
+```swift
+let bag = DisposeBag()
+
+enum MyError: Error {
+    case error
+}
+
+var attempts = 1
+
+let source = Observable<Int>.create { observer in
+    let currentAttempts = attempts
+    print("#\(currentAttempts) START")
+    
+    if attempts < 3 {
+        observer.onError(MyError.error)
+        attempts += 1
+    }
+    
+    observer.onNext(1)
+    observer.onNext(2)
+    observer.onCompleted()
+    
+    return Disposables.create {
+        print("#\(currentAttempts) END")
+    }
+}
+
+source
+//    .retry() //Observable이 정상적으로 완료될 때까지 재시도
+    .retry(2) // 첫 시도도 retry에 포함된다.
+    .subscribe { print($0) }
+    .disposed(by: bag)
+
+//재시도 횟수 내에 성공하면 종료한다.
+//재시도 사이 sleep은 따로 지정할 수 없다.
+```
+
+## 06-04 retry(when:)
+- ```retry```를 시도하는 시점을 선택할 수 있다.
+- 파리미터에 ```trigger```가 되는 ```Observable```을 넘기고 ```trigger```에 이벤트를 방출하면 재시도한다.
+- 재시도하는 버튼을 만들고 누르면 재시도하는 로직 등을 구현할 수 있다. 
+
+```swift
+let bag = DisposeBag()
+
+enum MyError: Error {
+    case error
+}
+
+var attempts = 1
+
+let source = Observable<Int>.create { observer in
+    let currentAttempts = attempts
+    print("START #\(currentAttempts)")
+    
+    if attempts < 3 {
+        observer.onError(MyError.error)
+        attempts += 1
+    }
+    
+    observer.onNext(1)
+    observer.onNext(2)
+    observer.onCompleted()
+    
+    return Disposables.create {
+        print("END #\(currentAttempts)")
+    }
+}
+
+let trigger = PublishSubject<Void>()
+
+source
+    .retry{ _ in trigger}
+    .subscribe { print($0) }
+    .disposed(by: bag)
+
+//트리거가 next를 방출할 때까지 기다린다.
+trigger.onNext(())
+trigger.onNext(())
+trigger.onNext(())
+```
