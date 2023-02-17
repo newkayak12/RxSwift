@@ -1,26 +1,13 @@
-//
-//  Mastering RxSwift
-//  Copyright (c) KxCoding <help@kxcoding.com>
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
-//
-
+/**
+ Binding
+ 데이터 생성자 : Observable
+ 데이터 소비자 : UI Component
+ Uni-direction
+ 
+ binder는 데이터 바인딩에서 사용하는 Observer(소비자)
+ 에러 이벤트를 받지 않는다. -> 크래시 혹은 에러 메시지를 뿜는다.
+ Binding이 성공하면 UI를 업데이트한다. -> MainThread에서 시작 (MainThread에서 실행되는 것이 보장 된다.)
+ */
 
 import UIKit
 import RxSwift
@@ -41,16 +28,22 @@ class BindingRxCocoaViewController: UIViewController {
         valueField.becomeFirstResponder()
         
         
+        //ControlProperty
 //        valueField.rx.text
-//            .observe(on: MainScheduler.instance)
+////            .observe(on: MainScheduler.instance) //#2 메인쓰레드 방법 2
 //            .subscribe(onNext: { [weak self] str in
+//                print("ISMAIN? \(Thread.isMainThread)")
+//
+////                DispatchQueue.main.async { //#1 메인쓰레드 방법 1
+////                    self?.valueLabel.text = str
+////                }
+//
 //                self?.valueLabel.text = str
-//            })
-//            .disposed(by: disposeBag)
+//            }).disposed(by: disposeBag)
         
-        valueField.rx.text
-            .bind(to: valueLabel.rx.text)
-            .disposed(by: disposeBag)
+        
+        valueField.rx.text.bind(to: valueLabel.rx.text).disposed(by: disposeBag)
+        //이러면 알아서 MainThread에서 바인딩한다. (스케쥴러를 따로 지정하지 않는다면)
         
     }
     
