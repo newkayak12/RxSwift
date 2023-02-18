@@ -1,25 +1,10 @@
-//
-//  Copyright (c) 2019 KxCoding <kky0317@gmail.com>
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
-//
-
+/**
+ 에러 전달 X
+ MainThread에서 기본적으로 실행(스케쥴러 변경이 없는 한)
+ Driver는 sideEffect를 공유한다.
+ 일반 Observable에서 share를 호출하고 subscribe를 한 것과 같다. (시퀀스 공유)
+ 가장 최근의 이벤트 하나를 버퍼해놓는다.
+ */
 import UIKit
 import RxSwift
 import RxCocoa
@@ -41,21 +26,34 @@ class DriverViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        let result = inputField.rx.text
-            .flatMapLatest { validateText($0) }
+//        let result = inputField.rx.text
+//            .flatMapLatest {
+//                validateText($0)
+//                    .observe(on: MainScheduler.instance) //background에서 돌 수도2
+//                    .catchAndReturn(false)
+//            }
+//            .share()
+        let result = inputField.rx.text.asDriver()
+            .flatMapLatest{
+                validateText($0)
+                    .asDriver(onErrorJustReturn: false)
+            }
         
         result
             .map { $0 ? "Ok" : "Error" }
-            .bind(to: resultLabel.rx.text)
+//            .bind(to: resultLabel.rx.text) //driver를 사용하면 dribe로 대체
+            .drive(resultLabel.rx.text)
             .disposed(by: bag)
         
         result
             .map { $0 ? UIColor.blue : UIColor.red }
-            .bind(to: resultLabel.rx.backgroundColor)
+//            .bind(to: resultLabel.rx.backgroundColor)
+            .drive(resultLabel.rx.backgroundColor)
             .disposed(by: bag)
         
         result
-            .bind(to: sendButton.rx.isEnabled)
+//            .bind(to: sendButton.rx.isEnabled)
+            .drive(sendButton.rx.isEnabled)
             .disposed(by: bag)
         
     }
