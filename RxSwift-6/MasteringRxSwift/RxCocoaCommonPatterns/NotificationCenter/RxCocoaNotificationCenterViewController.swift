@@ -30,7 +30,7 @@ class RxCocoaNotificationCenterViewController: UIViewController {
         let willHideObservable = NotificationCenter.default.rx.notification(UIResponder.keyboardWillHideNotification)
             .map{ noti -> CGFloat in 0}
         
-        Observable.merge(willHideObservable, willHideObservable)
+        Observable.merge(willShowObservable, willHideObservable)
             .map{ [unowned self] height -> UIEdgeInsets in
                 var inset = self.textView.contentInset
                 inset.bottom = height

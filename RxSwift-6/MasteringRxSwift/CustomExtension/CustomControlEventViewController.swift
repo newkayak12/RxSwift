@@ -1,26 +1,3 @@
-//
-//  Mastering RxSwift
-//  Copyright (c) KxCoding <help@kxcoding.com>
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
-//
-
 
 import UIKit
 import RxSwift
@@ -47,11 +24,18 @@ class CustomControlEventViewController: UIViewController {
         inputField.leftView = paddingView
         inputField.leftViewMode = .always
         
-        inputField.rx.text
-            .map { $0?.count ?? 0 }
-            .map { "\($0)" }
-            .bind(to: countLabel.rx.text)
+//        inputField.rx.text
+//            .map { $0?.count ?? 0 }
+//            .map { "\($0)" }
+//            .bind(to: countLabel.rx.text)
+//            .disposed(by: bag)
+        
+        inputField.rx.editiingChanged
+            .map{ [weak self] in
+                self?.inputField.text?.count
+            }.bind(to: countLabel.rx.textCount)
             .disposed(by: bag)
+        
         
         doneButton.rx.tap
             .subscribe(onNext: { [weak self] _ in
@@ -59,18 +43,54 @@ class CustomControlEventViewController: UIViewController {
             })
             .disposed(by: bag)
         
-        inputField.delegate = self
+//        inputField.delegate = self
+        
+        inputField.rx.editingDidBegin
+            .map{ UIColor.red }
+            .bind(to: inputField.rx.borderColor)
+            .disposed(by: bag)
+        
+        inputField.rx.editingDidEnd
+            .map{ UIColor.gray}
+            .bind(to: inputField.rx.borderColor)
+            .disposed(by: bag)
     }
 }
 
-extension CustomControlEventViewController: UITextFieldDelegate {
-    func textFieldDidBeginEditing(_ textField: UITextField) {
-        textField.layer.borderColor = UIColor.red.cgColor
+//extension CustomControlEventViewController: UITextFieldDelegate {
+//    func textFieldDidBeginEditing(_ textField: UITextField) {
+//        textField.layer.borderColor = UIColor.red.cgColor
+//    }
+//
+//    func textFieldDidEndEditing(_ textField: UITextField) {
+//        textField.layer.borderColor = UIColor.gray.cgColor
+//    }
+//}
+
+
+extension Reactive where Base: UITextField {
+    var editiingChanged: ControlEvent<Void> {
+        return controlEvent(.editingChanged)
     }
     
-    func textFieldDidEndEditing(_ textField: UITextField) {
-        textField.layer.borderColor = UIColor.gray.cgColor
+    var editingDidBegin: ControlEvent<Void> {
+        return controlEvent(.editingDidBegin)
+    }
+    var editingDidEnd: ControlEvent<Void> {
+        return controlEvent(.editingDidEnd)
+    }
+
+    var borderColor: Binder<UIColor?> {
+        return Binder(self.base) { textfield, color in
+            textfield.layer.borderColor = color?.cgColor
+        }
     }
 }
 
-
+extension Reactive where Base: UILabel {
+    var textCount: Binder<Int?> {
+        return Binder(self.base) { textfield, count in
+            textfield.text = "\(count ?? 0)"
+        }
+    }
+}

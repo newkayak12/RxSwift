@@ -1,33 +1,16 @@
-//
-//  Mastering RxSwift
-//  Copyright (c) KxCoding <help@kxcoding.com>
-//
-//  Permission is hereby granted, free of charge, to any person obtaining a copy
-//  of this software and associated documentation files (the "Software"), to deal
-//  in the Software without restriction, including without limitation the rights
-//  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-//  copies of the Software, and to permit persons to whom the Software is
-//  furnished to do so, subject to the following conditions:
-//
-//  The above copyright notice and this permission notice shall be included in
-//  all copies or substantial portions of the Software.
-//
-//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-//  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-//  THE SOFTWARE.
-//
-
 
 import UIKit
 import CoreLocation
 import RxSwift
 import RxCocoa
 import MapKit
-
+/**
+ CLLocationManager
+ 위치 정보 필요 시점에 코드를 구현 -> RxSwift 방식으로 확장 불가
+ 
+ => DelegateProxy : 해당 Delegate가 호출되는 시점에 next() 넘김
+ CLLocationManager -> DelegateProxy -> Subscriber
+ */
 class DelegateProxyViewController: UIViewController {
     
     let bag = DisposeBag()
@@ -38,11 +21,43 @@ class DelegateProxyViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        locationManager.requestWhenInUseAuthorization()
+        locationManager.startUpdatingLocation()
         
-        
+        locationManager.rx.didUpdateLocations.subscribe(onNext: {locations in print(locations)}).disposed(by: bag)
+        locationManager.rx.didUpdateLocations.map{ $0[0] }.bind(to: mapView.rx.center).disposed(by: bag)
+    }
+}
+extension CLLocationManager: HasDelegate {
+    public typealias Delegate = CLLocationManagerDelegate //해당 delegate로 지정하면 된다.
+}
+
+class RxCLLocationManagerDelegateProxy: DelegateProxy<CLLocationManager, CLLocationManagerDelegate>, DelegateProxyType, CLLocationManagerDelegate {
+    
+    weak private(set) var locationManager: CLLocationManager?
+    init(locationManager: CLLocationManager) {
+        self.locationManager = locationManager
+        super.init(parentObject: locationManager, delegateProxy: RxCLLocationManagerDelegateProxy.self)
+    }
+    
+    static func registerKnownImplementations() {
+        self.register {
+            RxCLLocationManagerDelegateProxy(locationManager: $0)
+        }
     }
 }
 
+
+extension Reactive where Base: CLLocationManager {
+    var delegate: DelegateProxy<CLLocationManager, CLLocationManagerDelegate> {
+        return RxCLLocationManagerDelegateProxy.proxy(for: base)
+    }
+    
+    var didUpdateLocations: Observable<[CLLocation]> {
+        return delegate.methodInvoked(#selector(CLLocationManagerDelegate.locationManager(_:didUpdateLocations:)))
+            .map { parameters in return parameters[1] as! [CLLocation]}
+    }
+}
 
 extension Reactive where Base: MKMapView {
     public var center: Binder<CLLocation> {
@@ -52,5 +67,3 @@ extension Reactive where Base: MKMapView {
         }
     }
 }
-
-

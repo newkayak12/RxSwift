@@ -1976,3 +1976,201 @@ trigger.onNext(())
 trigger.onNext(())
 ```
 # 07.RxCoCoa
+## 07-01. rx
+- RxCocoa는 기본적으로 기존의 CocoaTouch를 래핑해 놓은 상태이다.
+- ```Reactive``` 클래스를 확장하여  ``` 필요한 CocoaTouchClass를 채용한다.
+- 리턴하는 형태는 읽기 전용인(Observer) ```Binder<?>```, 읽기, 쓰기가 가능한 (Observable) ```ControlProperty```, 이벤트를 래핑하고 해당 이벤트 발생 시 next를 전달하는 형태인 ```ControlEvent<Void>```가 있다.
+- ```ControlProperty```는 ```Observable```에서 이벤트를 받아서 버퍼가 1개인 ```share()```와 같이 동작한다.
+- ```controlEvent```는 버퍼가 없는 ```share()```와 같이 동작한다.
+- 주로 이러한 rxCocoa에 접근하려면 ```oulet```에 ```rx```를 통해서 접근한다.
+- 
+
+
+## 07-02. bind()
+- ```Observable```을 소모하는 연산자이다.
+- 주로 UI를 업데이트할 때 사용한다.
+- MainThread에서 동작되는 것을 보장한다.
+
+```swift
+class BindingRxCocoaViewController: UIViewController {
+    
+    @IBOutlet weak var valueLabel: UILabel!
+    
+    @IBOutlet weak var valueField: UITextField!
+    
+    let disposeBag = DisposeBag()
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        valueLabel.text = ""
+        valueField.becomeFirstResponder()
+        
+        
+        //ControlProperty
+        //방법 1 //MainThread에서 UI 업데이트를 보장하기 위해서 DispatchQueue를 사용했다.
+        valueField.rx.text
+            .subscribe(onNext: { [weak self] str in
+                DispatchQueue.main.async { //#1 메인쓰레드 방법 1
+                    self?.valueLabel.text = str
+                }
+            }).disposed(by: disposeBag)
+        
+        
+        //방법2 //observe(on:) 사용을 통해서 subscribe를 MainScehduler에서 동작하도록 한다.
+        valueField.rx.text
+            .observe(on: MainScheduler.instance) //#2 메인쓰레드 방법 2
+            .subscribe(onNext: { [weak self] str in
+                self?.valueLabel.text = str
+            }).disposed(by: disposeBag)
+
+        //방법3 //bind(to:)
+        valueField.rx.text.bind(to: valueLabel.rx.text).disposed(by: disposeBag)
+        //이러면 알아서 MainThread에서 바인딩한다. (스케쥴러를 따로 지정하지 않는다면)
+        
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        
+        valueField.resignFirstResponder()
+    }
+}
+```
+### !주의 -> rxCocoa를 사용하면서 가끔 컴파일러 단에서 타입 추론에 실패하는 경우가 발생한다.
+```swift
+ let observer = Observable.combineLatest([redSlider.rx.value, greenSlider.rx.value, blueSlider.rx.value])
+        .map { UIColor(red: CGFloat($0[0]) / 255, green: CGFloat($0[1]) / 255, blue: CGFloat($0[2]) / 255, alpha: 1.0) }
+                .bind(to: colorView.rx.backgroundColor).disposed(by:bag)
+```
+### 의 경우 해당 현상이 발생했으며, 
+```swift
+ let observer = Observable.combineLatest([redSlider.rx.value, greenSlider.rx.value, blueSlider.rx.value])
+        //The compiler is unable to type-check this expression in reasonable time; try breaking up the expression into distinct sub-expressions
+        // 타입 추론이 어렵다는 것이 결론, 따라서 위 아래처럼 쪼개면 된다고 한다. 
+        observer.map { UIColor(red: CGFloat($0[0]) / 255, green: CGFloat($0[1]) / 255, blue: CGFloat($0[2]) / 255, alpha: 1.0) }
+                .bind(to: colorView.rx.backgroundColor).disposed(by:bag)
+```
+### 와 같이 나누면 이를 해결할 수 있다.
+
+## 07-03. drive()
+- ```bind```와 마찬가지로 ```Observable sequence```를 소비한다. 
+- 에러를 전달하지 않는다.
+- sideEffect를 ```share```한다. (# ```sideEffect```는 ```Observable``` 밖으로 데이터를 내보내는 행위를 일컫는다.)
+- Main Thread에서 사용을 보장한다.
+- ```Observable```의 ```sequence```를 ```share```한다. (하나의 ````Observable````에 ```bind(to:)``` 를 3 번하면 3 번 시퀀스가 돌지만 ```driver```을 사용해서 공유하는 방법으로 줄일 수 있다.)
+### bind(to:)를 사용한 에러 핸들링 및 mainThread 지정 예
+```swift
+let result = inputField.rx.text
+    .flatMapLatest {
+        validateText($0)
+            .observe(on: MainScheduler.instance) //background에서 돌 수도 있다.
+            .catchAndReturn(false)
+    }
+    .share()
+    .map { $0 ? "Ok" : "Error" }
+    .bind(to: resultLabel.rx.text) //driver를 사용하면 dribe로 대체
+    .disposed(by: bag)
+```
+### driver의 onErrorJustReturn으로 에러 처리 및 mainThread 기본 사용을 이용한 코드
+```swift
+
+let result = inputField.rx.text.asDriver()
+        .flatMapLatest{
+            validateText($0)
+                    .asDriver(onErrorJustReturn: false) //driver로 변환
+        }
+        .map { $0 ? UIColor.blue : UIColor.red }
+        .drive(resultLabel.rx.backgroundColor)
+        .disposed(by: bag)
+```
+
+## 07-04. CustomBinder
+- ```Reactive```를 확장하고 원하는 UI 프로토콜을 채용한다.
+- 사용할 변수를 할당한다. 리턴 타입은  ```Binder<?>```가 된다. (받을 타입을 제네릭으로 설정하면 된다.)
+- ```Binder``` 구조체를 반환한다. 생성자는 ```Binder(<#T##target: Target##Target#>, binding: <#T##(Target, Value) -> Void#>)```이다.
+- 주로 첫 번째 파라미터는 ```base.self```를  두 번째 파라미터 파인딩 타겟과 ```Observable```에서 받을 ```value```를 가진 클로저를 선언한다.
+```swift
+//ex)
+extension Reactive where Base: UILabel {
+    var segmentedValue: Binder<Int> {
+        return Binder(self.base) { label, index in
+            switch (index){
+                case 0:
+                    label.text = "Red"
+                    label.textColor = UIColor.red
+                case 1:
+                    label.text = "Green"
+                    label.textColor = UIColor.green
+                case 2:
+                    label.text = "Blue"
+                    label.textColor = UIColor.blue
+                default:
+                    label.text = "Unknown"
+                    label.textColor = UIColor.black
+            }
+            
+        }
+    }
+}
+
+
+//usage)
+colorPicker.rx.selectedSegmentIndex.bind(to: valueLabel.rx.segmentedValue).disposed(by: bag)
+```
+
+## 07-05. CustomControlProperty
+- ```Reactive```를 확장하고 원하는 UI 프로토콜을 채용한다.
+- 사용할 변수를 할당한다. 리턴 타입은  ```ControlProperty<T?> ```가 된다. (리턴할 타입에 옵셔널을 붙인다.)
+- ```base.rx.controlProperty``` 메소드를 리턴한다.
+- ```(editingEvents: UIControl.Event, getter: @escaping (Base) -> T, setter: @escaping (Base, T) -> Void)``` 가 해당 메소드의 파라미터이다. 이벤트 타입, getter, setter를 리턴한다.
+  
+```swift
+//예시
+extension Reactive where Base: UISlider {
+    var color: ControlProperty<UIColor?> {
+        return base.rx.controlProperty(editingEvents: .valueChanged, getter: { (slider) in
+            UIColor(white: CGFloat(slider.value), alpha: 1.0)
+        }, setter: { slider, color in
+            var white = CGFloat(1)
+            color?.getWhite(&white, alpha: nil)
+            slider.value = Float(white)
+        })
+    }
+}
+
+//사용 예
+whiteSlider.rx.color.bind(to: view.rx.backgroundColor).disposed(by: bag)
+
+//추가로 bind(to:)에 두 개이상의 옵저버를 전달할 수도 있다.
+resetButton.rx.tap
+        .map { _ in UIColor(white:0.5, alpha: 1.0) }
+        .bind(to: whiteSlider.rx.color.asObserver(), view.rx.backgroundColor.asObserver()) //2개 이상 옵저버를 전달할 수 있다.
+        .disposed(by: bag)
+```
+
+## 07-06. CustomControlEvent
+- ```Reactive```를 확장하고 원하는 UI 프로토콜을 채용한다.
+- ```ControlEvent<Void>``` 타입의 ```getter```를 선언하고  ```ControlEvent<()>```를 리턴하는 ```controlEvent(_ controlEvents: UIControl.Event) ```을 리턴한다.
+- 파라미터는 반응할 이벤트이다.
+
+### Reactive에 커스텀 이벤트 선언
+```swift
+extension Reactive where Base: UITextField {
+    var editingChanged: ControlEvent<Void> {
+        return controlEvent(.editingChanged)
+    }
+}
+```
+### 커스텀 이벤트 사용
+```swift
+ inputField.rx.editingChanged
+            .map{ [weak self] in
+                self?.inputField.text?.count
+            }.bind(to: countLabel.rx.textCount)
+            .disposed(by: bag)
+        
+```
+## 07-07. DelegateProxy
+
+
